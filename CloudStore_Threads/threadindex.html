@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <script type="text/javascript">
+var rawData;
+function makeXHR(action,cacheFlag)
+{
+  console.log(action);
+  var xmlHttp = null;
+  xmlHttp = new XMLHttpRequest();
+
+  xmlHttp.onreadystatechange = function() {
+    if (xmlHttp.readyState == 4) {
+        console.log(xmlHttp.responseText);
+        rawData=xmlHttp.responseText;
+       
+    }
+  }
+    xmlHttp.open( "GET", "/findAll?action="+action+"&cacheFlag="+cacheFlag, false );
+    xmlHttp.setRequestHeader("Content-type", "application/octet-stream");
+    xmlHttp.send(null);
+  
+}
+function DownloadWindowObject(fileURL, fileName) {
+        var dLink = document.createElement('a');
+        dLink.href = fileURL;
+        dLink.target = '_blank';
+        dLink.download = fileName || 'unknown';
+
+        var event = document.createEvent('Event');
+        event.initEvent('click', true, true);
+        dLink.dispatchEvent(event);
+        (window.URL || window.webkitURL).revokeObjectURL(dLink.href);
+  }
+function dl(data,filename)
+{
+var responseData = data;
+var blob = new Blob([responseData], {type: 'application/octet-binary'}); // pass a useful mime type here
+var url = URL.createObjectURL(blob);
+DownloadWindowObject(url,filename);
+    
+}
+function initiateDownload()
+{
+  n=rawData.length
+  while(n>-1 )
+  {
+    gcsFileName=rawData[n-1];
+    if(gcsFileName!=undefined && gcsFileName!=null)
+    {
+          var xmlHttp = null;
+          xmlHttp = new XMLHttpRequest();
+          xmlHttp.onreadystatechange = function() {
+            if (xmlHttp.readyState == 4) {
+                //console.log(xmlHttp.responseText);
+                dl(xmlHttp.responseText,gcsFileName);
+            }
+          }
+
+          xmlHttp.open( "GET", "/download?action="+gcsFileName, false );
+          xmlHttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+          xmlHttp.send(null);
+
+    } 
+    n=n-1;
+  }
+}
+function extractData(cacheFlag)
+{
+  if(cacheFlag=="false")
+   {var re = new RegExp(";||<br>||404", 'g');
+   rawData=rawData.replace(re,"");
+   rawData=rawData.split("/cloudstore-storage/");
+  }
+   else
+   {
+     rawData=rawData.split(";");
+   }
+}
+function downloadAll(cacheFlag)
+{
+  var d = new Date();
+  startTime=d.getTime();
+  makeXHR("findAll",cacheFlag);
+  extractData(cacheFlag);
+  res=confirm("This action will download multiple files on you System!.Press ok to continue");
+  if(res==true)
+    { console.log("Total file :"+rawData.length);
+      if(rawData.length>0)
+      {
+        initiateDownload();
+        initiateDownload();
+      }
+      else
+        console.log("no data in cache");
+    }
+    else
+      console.log("download aborted");
+      d = new Date();
+     endTime=d.getTime();
+     document.getElementById("output").innerHTML="TimeTaken: "+(endTime-startTime)+" milliseconds";
+
+}
+
+  </script>
+  </head>
+
+<body background = "wp4.png" style="background-color:#CCCC99">
+  <div id = "header">
+    <h1>Cloud Store (Threads Implementation)</h1>
+  </div>
+  <div id= "section">
+  <h4>Interface</h4>
+
+<table id="t01" width ="90%">
+
+<tr>
+<form enctype="multipart/form-data" method="post">
+<td>Select file Name:</td>
+<td><input type="file" name="insert" multiple></td>
+<td><input type="submit" value="Upload"></td>
+</form>
+</tr>
+<tr>
+<form enctype="multipart/form-data" method="post">
+<td>Find All Without Memcache:</td>
+<td></td>
+<td><input type="button"  onclick="downloadAll('false')" value="Find All w/o Memcache"></td>
+</form>
+</tr>
+<tr>
+<form enctype="multipart/form-data" method="post">
+<td>Find All With Memcache:</td>
+<td></td>
+<td><input type="button"  onclick="downloadAll('true')" value="Find All w Memcache"></td>
+</form>
+</tr>
+<tr>
+<form enctype="multipart/form-data" method="post">
+<td>Remove Without Memcache:</td>
+<td></td>
+<td><input type="submit" name="gcs_remove" value="Remove GCS"></td>
+</form>
+</tr>
+<tr>
+<form enctype="multipart/form-data" method="post">
+<td>Remove With Memcache:</td>
+<td></td>
+<td><input type="submit" name="all_remove" value="Remove All"></td>
+</form>
+</tr>
+</table>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+</div>
+<div id="aside">
+  <h2><center><u>Welcome to CloudStore</u></center></h2>
+      <h4><center>Read Me</center></h4>
+      <p><b>Insert :</b>  Enables the user to upload the selected files to distributed file system</p>
+      <p><b>FindAll without Memcache :</b> Downloads all the files present execept the ones in memcache </p>
+      <p><b>FindAll With Memcache :</b> Downloads files from both Memcache and GCS</p>
+      <p><b>Remove :</b> To delete files present in the Memcache or GCS</p>
+      <p><b>Status Code</b>: Success:1 ;Failue=0</p	
+<div id="output"><b>Time Taken:</b></div>
+</div>
+<div id = "footer">
+  <footer>
+  Arihant Raj Nagarajan(A20334121) ; Rahul Krishnamurthy(A20330185); Shashank Sharma(A20330372)
+</footer>
+</div>
+</body>
+</html>
+
+<style>
+#header {
+    background-color:black;
+    color:white;
+    text-align:center;
+    padding:5px;
+}
+table, th, td {
+    border: 1px solid black;
+    <!-- border-collapse: collapse;-->
+}
+table#t01 tr:nth-child(even) {
+    background-color: #eee;
+}
+table#t01 tr:nth-child(odd) {
+   background-color:#fff;
+}
+#section {
+    width:60%;
+    height:100%;
+    float:left;
+}
+#aside {
+    text-align:left;
+    width:40%;
+    float:left;
+}
+#footer {
+    background-color:black;
+    color:white;
+    clear:both;
+    text-align:center;
+    padding:5px; 
+}
+</style>

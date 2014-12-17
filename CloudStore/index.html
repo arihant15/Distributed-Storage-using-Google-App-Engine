@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+  <head>
+   <script type="text/javascript">
+  //prototying payload type for XMLhttp
+  try {
+  if (typeof XMLHttpRequest.prototype.sendAsBinary == 'undefined') {
+    XMLHttpRequest.prototype.sendAsBinary = function(text){
+      var data = new ArrayBuffer(text.length);
+      var ui8a = new Uint8Array(data, 0);
+      for (var i = 0; i < text.length; i++) ui8a[i] = (text.charCodeAt(i) & 0xff);
+      this.send(ui8a);
+    }
+  }
+} catch (e) {
+  console.log("exception in binary")
+}
+//This method splits big files into batch of 1 MB and process a recursive upload
+function uploadFile(file){
+var loaded = 0;
+var step = 1024*1024;
+var total = file.size;
+var start = 0;
+var progress = 0;
+var part=0;
+var reader = new FileReader();
+ var maxVal=Math.floor(total/step);
+
+reader.onload = function(e){
+        var xhr = new XMLHttpRequest();
+        var upload = xhr.upload;
+        upload.addEventListener('load',function(){
+        loaded += step;
+        
+        progress = (loaded/total) * 100;
+                if(loaded <= total){
+                      part+=1;
+                        blob = file.slice(loaded,loaded+step);
+                        reader.readAsBinaryString(blob);
+                }else{
+                        loaded = total;
+                        part="end";
+                }
+        },false);
+        xhr.open("POST", "/asynchRequest?fileName="+file.name+"&part="+part+'&action=stream'+"&last="+maxVal);
+        xhr.overrideMimeType("application/octet-stream");
+        console.log(e.target.result.length);
+        xhr.sendAsBinary(e.target.result);
+        console.log("step+"+progress);
+        console.log("loaded::"+loaded);
+        
+};
+var blob = file.slice(start,step);
+reader.readAsBinaryString(blob); 
+        
+
+
+        //cleanup request to merge multipart and process request to tier 3 processing
+}
+
+function upload()
+{
+  var form = document.getElementById('uploadForm');
+  var fileSelect = document.getElementById('insert');
+  var files=fileSelect.files;
+  console.log(calculateFileSize(files))
+  //if(calculateFileSize(files)>1024)
+  if(calculateFileSize(files)>9990971520)
+  {  uploadFile(files[0]);
+  }
+  else
+    form.submit();
+  }
+//Calculates total size of files present in the the fileobject
+function calculateFileSize(files)
+{
+  i=0;totalSize=0;
+while(i<files.length)
+  {
+    totalSize+=files[i].size
+    i++;
+  }
+  return totalSize;
+}
+var rawData;
+var startTiime=0;
+var endTime=0;
+//Creates and asynchronous request
+function makeXHR(action,cacheFlag)
+{
+  console.log(action);
+  var xmlHttp = null;
+  xmlHttp = new XMLHttpRequest();
+
+  xmlHttp.onreadystatechange = function() {
+    if (xmlHttp.readyState == 4) {
+        console.log(xmlHttp.responseText);
+        rawData=xmlHttp.responseText;
+       
+    }
+  }
+    xmlHttp.open( "GET", "/findAll?action="+action+"&cacheFlag="+cacheFlag, false );
+    xmlHttp.setRequestHeader("Content-type", "application/octet-stream");
+    xmlHttp.send(null);
+  
+}
+//Downloads file using a HTML 5 Blob  object
+function DownloadWindowObject(fileURL, fileName) {
+        var dLink = document.createElement('a');
+        dLink.href = fileURL;
+        dLink.target = '_blank';
+        dLink.download = fileName || 'unknown';
+
+        var event = document.createEvent('Event');
+        event.initEvent('click', true, true);
+        dLink.dispatchEvent(event);
+        (window.URL || window.webkitURL).revokeObjectURL(dLink.href);
+  }
+function dl(data,filename)
+{
+var responseData = data;
+var blob = new Blob([responseData], {type: 'application/octet-binary'}); // pass a useful mime type here
+var url = URL.createObjectURL(blob);
+DownloadWindowObject(url,filename);
+    
+}
+//Initiates recursive download
+function initiateDownload()
+{
+  n=rawData.length
+  while(n>-1 )
+  {
+    gcsFileName=rawData[n-1];
+    if(gcsFileName!=undefined && gcsFileName!=null)
+    {
+          var xmlHttp = null;
+          xmlHttp = new XMLHttpRequest();
+          xmlHttp.onreadystatechange = function() {
+            if (xmlHttp.readyState == 4) {
+                //console.log(xmlHttp.responseText);
+                dl(xmlHttp.responseText,gcsFileName);
+            }
+          }
+
+          xmlHttp.open( "GET", "/download?action="+gcsFileName, false );
+          xmlHttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+          xmlHttp.send(null);
+
+    } 
+    n=n-1;
+  }
+}
+//Performs regex based excape on file names
+function extractData(cacheFlag)
+{
+  if(cacheFlag=="false")
+   {var re = new RegExp(";||<br>||404", 'g');
+   rawData=rawData.replace(re,"");
+   rawData=rawData.split("/cloudstore-storage/");
+  }
+   else
+   {
+     rawData=rawData.split(";");
+   }
+}
+//Fetches File list for download and performs validation before download
+function downloadAll(cacheFlag)
+{
+   var d = new Date();
+   startTime=d.getTime();
+  makeXHR("findAll",cacheFlag);
+  extractData(cacheFlag);
+  res=confirm("This action will download multiple files on you System!.Press ok to continue");
+  if(res==true)
+    { console.log("Total file :"+rawData.length);
+      if(rawData.length>0)
+      {initiateDownload();
+        initiateDownload();
+      }
+      else
+        console.log("no data in cache");
+    }
+    else
+      console.log("download aborted");
+    d = new Date();
+    endTime=d.getTime();
+    document.getElementById("output").innerHTML="TimeTaken:-"+(endTime-startTime);
+}
+
+  </script>
+  </head>
+  <body background = "wp4.png" style="background-color:#CCCC99">
+    <div id = "header">
+    <image src="http://tiny.cc/0wv0ox" style="height: 13%;width: 5%;
+float: right;" >
+      <h1>Cloud Store </h1>
+    </div>
+    <div id= "section">
+      <h4>Interface</h4>
+      <table id="t01" width ="90%">
+        <tr>
+          <form enctype="multipart/form-data" name="uploadForm" id="uploadForm" method="post">
+            <td>Select File Name:</td>
+                <td><input type="file" name="insert" id="insert" multiple>
+                <input type="hidden" name="fileInfo" id="fileInfo" multiple>
+                </td>
+                <td><input type="button" onclick="upload()" value="Upload">
+                </td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Check:</td>
+                <td><input type="text" value="Enter key" name="check"></td>
+                <td><input type="submit" value="Check"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Find:</td>
+                <td><input type="text" value="Enter key" name="find"></td>
+                <td><input type="submit" value="Find"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Remove File:</td>
+            	  <td><input type="text" value="Enter key" name="remove"></td>
+                <td><input type="submit" value="Remove"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td >List GCS Contents:</td>
+            <td></td>
+                <td><input type="submit" name="list" value="List"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Find All Without Memcache:</td>
+            <td></td>
+                <td><input type="button"  onclick="downloadAll('false')" value="Find All w/o Memcache"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Find All With Memcache:</td>
+            <td></td>
+                <td><input type="button"  onclick="downloadAll('true')" value="Find All w Memcache"></td>
+          </form>
+         
+        </tr>
+         
+      </table>
+
+        
+        <h4>Extra Credit</h4>
+      <table id="t01" width ="90%">
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Check:</td>
+                <td><input type="text" value="Enter key" name="gcs_check"></td>
+                <td><input type="submit" value="GCS Check"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Check:</td>
+                <td><input type="text" value="Enter key" name="mc_check"></td>
+                <td><input type="submit" value="Cache Check"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Remove Cache Contents:</td>
+            <td></td>
+                <td><input type="submit" name="mc_remove" value="Remove Cache"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Remove GCS Contents:</td>
+            <td></td>
+                <td><input type="submit" name="gcs_remove" value="Remove GCS"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Remove All:</td>
+            <td></td>
+                <td><input type="submit" name="all_remove" value="Remove All"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Cache Size Used:</td>
+            <td></td>
+                <td><input type="submit" name="cache_size" value="Cache Size"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Cache File Count:</td>
+            <td></td>
+                <td><input type="submit" name="cache_file_count" value="Cache File Count"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>GCS Size Used:</td>
+            <td></td>
+                <td><input type="submit" name="gcs_size" value="GCS Size"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>GCS File Count:</td>
+            <td></td>
+                <td><input type="submit" name="gcs_file_count" value="GCS File Count"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Find In File:</td>
+                <td><input type="text" value="Enter key" name="file_key"><br>
+                <input type="text" value="Enter regular expression" name="value_re"></td>
+                <td><input type="submit" value="Find in File"></td>
+          </form>
+        </tr>
+        <tr>
+          <form enctype="multipart/form-data" method="post">
+            <td>Listing:</td>
+                <td><input type="text" value="Enter regular expression" name="file_re"></td>
+                <td><input type="submit" value="Listing"></td>
+          </form>
+        </tr>
+      </table>
+      <br>
+    </div>
+    
+    <div id="aside">
+       <div id="readme">
+      <h2><center><u>Welcome to CloudStore</u></center></h2>
+      <h4><center>Read Me</center></h4>
+      <p><b>Insert</b>:  Enables the user to upload the selected files to distributed file system</p>
+      <p><b>Check</b> : To Check whether the key is present in the Memcache or GCS</p>
+      <p><b>Find </b>: Downloads the selected file with a given key value</p>
+      <p><b>Remove </b>: To delete files present in the Memcache or GCS</p>
+      <p><b>List </b>: Will display the list of files present in the storage system</p>
+      <p><b>FindAll without Memcache </b>: Downloads all the files present execept the ones in memcache </p>
+      <p><b>FindAll With Memcache </b>: Downloads files from both Memcache and GCS</p>
+      <p><b>Cache Size Used</b>: Displays the size of cache used</p>
+      <p><b>Cache File Count</b>: Returns the number of files present in the cache</p>
+      <p><b>Find In File</b>:  Looks for a particular regular expression inside a file</p>
+      <p><b>Status Code</b>: Success:1 ;Failue=0</p>
+
+    </div>
+<div id="output" ><b>Time Taken:</b></div>
+    
+    </div>
+
+    <div id = "footer">
+      <footer>
+      Arihant Raj Nagarajan(A20334121) ; Rahul Krishnamurthy(A20330185); Shashank Sharma(A20330372)
+      </footer>
+    </div>
+  </body>
+</html>
+
+<style>
+#header {
+    background-color:black;
+    color:white;
+    text-align:center;
+    padding:5px;
+}
+table, th, td {
+    border: 1px solid black;
+    <!-- border-collapse: collapse;-->
+}
+table#t01 tr:nth-child(even) {
+    background-color: #eee;
+}
+table#t01 tr:nth-child(odd) {
+   background-color:#fff;
+}
+#section {
+    width:60%;
+    height:100%;
+    float:left;
+}
+#aside {
+    text-align:left;
+    width:40%;
+    float:left;
+}
+#footer {
+    background-color:black;
+    color:white;
+    clear:both;
+    text-align:center;
+    padding:5px; 
+}
+</style>

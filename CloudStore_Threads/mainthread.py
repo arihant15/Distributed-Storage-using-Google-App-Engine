@@ -29,7 +29,7 @@ memcache_filenames = []
 gcs_filenames = []
 
 # Google Cloud Storage Bucket Name
-bucket_name = '/cloudstore-storage'
+bucket_name = 'Bucket_Name'
 
 # Thread Class
 class myThread(threading.Thread):

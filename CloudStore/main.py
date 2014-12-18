@@ -26,7 +26,7 @@ gcs.set_default_retry_params(my_default_retry_params)
 
 memcache_filenames = []
 # GCS Bucket Name
-bucket_name = '/cloudstore-storage'
+bucket_name = 'Bucket_Name'
 
 # Main Page Webpage Request Handler
 class MainPage(webapp2.RequestHandler):
